@@ -4,35 +4,33 @@ from langchain.prompts import PromptTemplate
 import json
 import os
 import random
+import re
 
 class QuestionGenerator:
     def __init__(self, category_name="Java Basics", category_name_ru="Основы Java"):
         self.category_name = category_name
         self.category_name_ru = category_name_ru
         self.prompt_template = f"""
-        You are a Java programming expert and technical interviewer. Your task is to generate Java interview questions about {category_name}.
+        You are a Java programming expert and educator. Your task is to generate questions about {category_name} ({category_name_ru}).
         Based on these existing questions:
 
         {{existing_questions}}
 
-        Generate {{num_questions}} new, unique, and challenging interview questions about {category_name}. Focus on:
-        1. Technical Java concepts and implementation details
-        2. Object-oriented programming principles and design patterns
-        3. Memory management and garbage collection
-        4. Multithreading and concurrency
-        5. Collections framework and data structures
-        6. Exception handling and best practices
-        7. Java 8+ features and modern Java development
-        8. Real-world problem-solving scenarios
-        9. System design and architecture considerations
-        10. All content must be in Russian language
+        Generate {{num_questions}} new, unique, and educational questions about {category_name}. Focus on:
+        1. Core concepts and fundamentals
+        2. Best practices and common patterns
+        3. Common mistakes and pitfalls
+        4. Practical applications
+        5. Performance considerations
         
         For each question, follow this exact format:
+        - All text content must be in Russian language
         - The field labels "QUESTION:", "ANSWER:", "OPTIONS:" must remain in English
         - Do not translate or modify these field labels
         - DIFFICULTY: easy, medium, hard
         - SCORE: easy=5, medium=10, hard=15
-        - The first option in OPTIONS must be exactly the same as the ANSWER
+        - Do not include answer options in the question text
+        - Do not include "ANSWER:" or "ОТВЕТ:" in the question text
         
         QUESTION: [your question in Russian]
         ANSWER: [correct answer in Russian]
@@ -54,6 +52,7 @@ class QuestionGenerator:
         6. Include code snippets where relevant, but keep comments and explanations in Russian
         7. Cover both theoretical concepts and practical applications
         8. The correct answer (ANSWER) must be exactly the same as the first option in OPTIONS
+        9. Do not include answer options or "ANSWER:" text within the question itself
         """
         
         self.prompt = PromptTemplate(
@@ -68,6 +67,31 @@ class QuestionGenerator:
         )
         self.question_chain = self.prompt | self.llm
     
+    def clean_question_text(self, text: str) -> str:
+        """Clean the question text by removing answer options and answer labels"""
+        # Remove everything after "ОТВЕТ:" or "ANSWER:"
+        text = re.split(r'\n?(?:ОТВЕТ:|ANSWER:)', text)[0]
+        
+        # Remove OPTIONS section if present
+        text = re.split(r'\n?OPTIONS:', text)[0]
+        
+        # Remove numbered options (1., 2., 3., 4.)
+        text = re.sub(r'\n?\d+\. .*', '', text)
+        
+        # Remove any trailing whitespace or newlines
+        return text.strip()
+
+    def clean_option_text(self, text: str) -> str:
+        """Clean the option text by removing answer labels and other artifacts"""
+        # Remove "(Answer: ...)" patterns
+        text = re.sub(r'\(Answer:.*?\)', '', text)
+        
+        # Remove "Answer:" text
+        text = text.replace('Answer:', '').replace('ANSWER:', '')
+        
+        # Remove any trailing whitespace or newlines
+        return text.strip()
+
     def generate_questions(self, existing_questions, num_questions=5):
         # Format existing questions for the prompt
         questions_text = "\n".join([
@@ -75,16 +99,13 @@ class QuestionGenerator:
             for q in existing_questions
         ])
         
-        # Generate new questions using the new invoke syntax
+        # Generate new questions
         response = self.question_chain.invoke({
             "existing_questions": questions_text,
             "num_questions": num_questions
         })
         
-        # Use .content instead of ['text']
         response_text = response.content
-        
-        # Parse the response into list of question objects
         questions = []
         question_blocks = response_text.strip().split('===')
         
@@ -93,27 +114,31 @@ class QuestionGenerator:
                 continue
                 
             try:
-                # Extract question
+                # Extract and clean question
                 question = block[block.find('QUESTION:') + 9:block.find('ANSWER:')].strip()
+                question = self.clean_question_text(question)
                 
-                # Extract answer
+                # Extract and clean answer
                 answer = block[block.find('ANSWER:') + 7:block.find('DIFFICULTY:')].strip()
+                answer = self.clean_option_text(answer)
                 
                 # Extract difficulty
                 difficulty = block[block.find('DIFFICULTY:') + 11:block.find('SCORE:')].strip()
                 
                 # Extract score
                 score_text = block[block.find('SCORE:') + 6:block.find('OPTIONS:')].strip()
-                score = int(score_text) if score_text.isdigit() else 5  # Default to 5 if parsing fails
+                score = int(score_text) if score_text.isdigit() else 5
                 
-                # Extract options
+                # Extract and clean options
                 options_text = block[block.find('OPTIONS:'):].strip()
                 options = []
-                for line in options_text.split('\n')[1:]:  # Skip the "OPTIONS:" line
+                for line in options_text.split('\n')[1:]:
                     if line.strip() and '. ' in line:
-                        options.append(line.split('. ', 1)[1].strip())
+                        option = line.split('. ', 1)[1].strip()
+                        option = self.clean_option_text(option)
+                        options.append(option)
                 
-                if len(options) == 4:  # Only add if we have all 4 options
+                if len(options) == 4:
                     # Use the first option as the correct answer to ensure consistency
                     correct_answer = options[0]
                     
@@ -121,23 +146,20 @@ class QuestionGenerator:
                     correct_position = random.randint(0, 3)
                     
                     # Rearrange options with correct answer in random position
-                    shuffled_options = options[1:]  # Get incorrect options
-                    random.shuffle(shuffled_options)  # Shuffle incorrect options
+                    shuffled_options = options[1:]
+                    random.shuffle(shuffled_options)
                     
-                    # Insert correct answer at random position
                     final_options = shuffled_options[:correct_position] + [correct_answer] + shuffled_options[correct_position:]
                     
                     questions.append({
                         'question': question,
-                        'correct_answer': correct_answer,  # Use the same text as in options
+                        'correct_answer': correct_answer,
                         'options': final_options,
-                        'difficulty': difficulty.lower(),  # normalize to lowercase
+                        'difficulty': difficulty.lower(),
                         'score': score
                     })
             except Exception as e:
                 print(f"Error parsing question block: {e}")
                 continue
         
-
-        print("new Questions: ", questions)
         return questions 
