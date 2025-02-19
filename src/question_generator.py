@@ -10,18 +10,22 @@ class QuestionGenerator:
         self.category_name = category_name
         self.category_name_ru = category_name_ru
         self.prompt_template = f"""
-        You are a Java programming expert and educator. Your task is to generate questions about {category_name}.
+        You are a Java programming expert and technical interviewer. Your task is to generate Java interview questions about {category_name}.
         Based on these existing questions:
 
         {{existing_questions}}
 
-        Generate {{num_questions}} new, unique, and educational questions about {category_name}. Focus on:
-        1. Core concepts and fundamentals
-        2. Best practices and common patterns
-        3. Common mistakes and pitfalls
-        4. Practical applications
-        5. Performance considerations
-        6. All content must be in Russian language
+        Generate {{num_questions}} new, unique, and challenging interview questions about {category_name}. Focus on:
+        1. Technical Java concepts and implementation details
+        2. Object-oriented programming principles and design patterns
+        3. Memory management and garbage collection
+        4. Multithreading and concurrency
+        5. Collections framework and data structures
+        6. Exception handling and best practices
+        7. Java 8+ features and modern Java development
+        8. Real-world problem-solving scenarios
+        9. System design and architecture considerations
+        10. All content must be in Russian language
         
         For each question, follow this exact format:
         - The field labels "QUESTION:", "ANSWER:", "OPTIONS:" must remain in English

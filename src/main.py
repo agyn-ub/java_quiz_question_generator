@@ -10,7 +10,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def generate_questions_for_category(db, category_id, category_name, category_name_ru, num_questions=10):
+def generate_questions_for_category(db, category_id, category_name, category_name_ru, num_questions=30):
     logger.info(f"Starting question generation for {category_name} (ID: {category_id})")
     
     generator = QuestionGenerator(category_name, category_name_ru)
@@ -18,7 +18,7 @@ def generate_questions_for_category(db, category_id, category_name, category_nam
     logger.info(f"Found {len(existing_questions)} existing questions for {category_name}")
     
     total_questions = 0
-    batch_size = 20
+    batch_size = 15
     
     while total_questions < num_questions:
         try:
